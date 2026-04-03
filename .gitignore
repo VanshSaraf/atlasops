@@ -1,0 +1,15 @@
+node_modules
+frontend/node_modules
+dist
+frontend/.next
+frontend/out
+artifacts/runs
+.env
+.env.local
+.env.*
+frontend/.env.local
+frontend/.env.production
+.env.production
+*.log
+results.json
+.DS_Store

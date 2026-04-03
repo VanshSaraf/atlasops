@@ -1,0 +1,212 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap");
+
+@layer base {
+  * {
+    @apply border-surface-border;
+  }
+
+  html {
+    background:
+      radial-gradient(circle at top left, rgba(52, 211, 153, 0.07), transparent 22%),
+      radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.05), transparent 28%),
+      linear-gradient(180deg, #071015 0%, #0a1218 46%, #0d151b 100%);
+  }
+
+  body {
+    @apply bg-surface text-ink-100 antialiased;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(8, 15, 20, 0.99), rgba(10, 18, 24, 1));
+    background-size: 24px 24px, 24px 24px, auto;
+    background-position: 0 0, 0 0, 0 0;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply tracking-tight;
+    font-family: "Sora", system-ui, sans-serif;
+    font-weight: 700;
+  }
+
+  h1 {
+    letter-spacing: -0.025em;
+  }
+  h2 {
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    letter-spacing: 0.01em;
+    line-height: 1.65;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-surface-border;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-600;
+  }
+
+  ::selection {
+    background: rgba(35, 127, 109, 0.4);
+    color: #fff;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-3xl border border-surface-border bg-surface-raised p-5;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.24);
+  }
+
+  .input-field {
+    @apply rounded-2xl border border-surface-border px-4 py-3 text-sm text-white placeholder-ink-500 outline-none transition-all focus:border-brand-400 focus:ring-2;
+    background: #0a1417;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 rounded-2xl border border-brand-400 bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50;
+    box-shadow: 0 12px 32px rgba(46, 158, 135, 0.16);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 rounded-2xl border border-surface-border bg-surface-overlay px-5 py-3 text-sm font-semibold text-ink-200 transition-all hover:border-brand-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold text-white;
+  }
+
+  .page-container {
+    @apply mx-auto w-full max-w-[1600px] px-4 py-6 lg:px-6;
+  }
+
+  .glass-card {
+    @apply relative overflow-hidden rounded-[28px] border border-surface-border p-6;
+    background:
+      linear-gradient(180deg, rgba(16, 24, 30, 0.98) 0%, rgba(10, 18, 23, 0.99) 100%);
+    box-shadow:
+      0 18px 42px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  }
+
+  .glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.05),
+      transparent 22%,
+      transparent 78%,
+      rgba(46, 158, 135, 0.14)
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .glass-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, transparent 0%, rgba(46, 158, 135, 0.05) 50%, transparent 100%);
+    opacity: 0.55;
+    mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 38%);
+  }
+
+  .workspace-shell {
+    background:
+      linear-gradient(180deg, rgba(6, 13, 17, 0.94), rgba(8, 14, 18, 0.98));
+  }
+
+  .workspace-main {
+    background:
+      radial-gradient(circle at top right, rgba(52, 211, 153, 0.05), transparent 18%),
+      linear-gradient(180deg, rgba(8, 15, 20, 0.8), rgba(9, 16, 21, 0.96));
+  }
+
+  .console-panel {
+    @apply rounded-[24px] border border-surface-border;
+    background: rgba(0, 0, 0, 0.1);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.03),
+      0 12px 30px rgba(0, 0, 0, 0.16);
+  }
+
+  .neon-btn {
+    @apply relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl border border-brand-400 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40;
+    background: linear-gradient(135deg, #1f6f60 0%, #2e9e87 58%, #d48633 100%);
+    box-shadow: 0 16px 38px rgba(46, 158, 135, 0.18);
+  }
+
+  .neon-btn:not(:disabled):hover {
+    box-shadow: 0 18px 42px rgba(46, 158, 135, 0.24);
+    transform: translateY(-1px);
+  }
+
+  .neon-btn:not(:disabled):active {
+    transform: translateY(0);
+    box-shadow: 0 8px 18px rgba(46, 158, 135, 0.12);
+  }
+
+  .glass-input {
+    @apply w-full rounded-2xl border border-surface-border px-4 py-3.5 text-sm text-white placeholder-ink-500 outline-none transition-all duration-200;
+    background: #091316;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.02),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.01);
+  }
+
+  .glass-input:focus {
+    border-color: rgba(46, 158, 135, 0.38);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.03),
+      0 0 0 3px rgba(46, 158, 135, 0.08);
+  }
+
+  .glass-input:disabled {
+    @apply opacity-40 cursor-not-allowed;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.24em] text-ink-500;
+  }
+
+  .panel-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+}
