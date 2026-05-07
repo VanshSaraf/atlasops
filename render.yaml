@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: atlasops-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        sync: false
+      - key: NVIDIA_API_URL
+        value: https://integrate.api.nvidia.com/v1/chat/completions
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_OWNER
+        sync: false
+      - key: GITHUB_REPO
+        sync: false
+      - key: ALLOW_HOST_FALLBACK
+        value: false
+      - key: ARTIFACTS_DIR
+        value: artifacts

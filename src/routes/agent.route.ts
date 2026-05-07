@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { Router, Request, Response } from "express";
 import { Orchestrator, TimelineEntry } from "../orchestrator";
-import { createLogger, validateRunRequest } from "../utils";
+import { config, createLogger, validateRunRequest } from "../utils";
 
 const logger = createLogger("AgentRoute");
 const router = Router();
@@ -37,7 +37,7 @@ router.get("/runs/:runId/download", (req: Request, res: Response) => {
 
   const artifactPath = path.resolve(
     process.cwd(),
-    "artifacts",
+    config.artifactsDir,
     "runs",
     runId,
     `${runId}.zip`,

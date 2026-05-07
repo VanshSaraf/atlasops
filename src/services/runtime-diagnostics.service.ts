@@ -35,8 +35,9 @@ export class RuntimeDiagnosticsService {
   }
 
   async getHealth(): Promise<RuntimeDiagnostics> {
-    const latestResultsPath = path.resolve(process.cwd(), "results.json");
-    const runsDirectory = path.resolve(process.cwd(), "artifacts", "runs");
+    const artifactsRoot = path.resolve(process.cwd(), config.artifactsDir);
+    const latestResultsPath = path.join(artifactsRoot, "results.json");
+    const runsDirectory = path.join(artifactsRoot, "runs");
 
     return {
       status: "ok",

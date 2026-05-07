@@ -178,6 +178,8 @@ cp frontend/.env.example frontend/.env.local
 |---|---|
 | `PORT` | Local backend port — usually `3001` |
 | `NODE_ENV` | `development` or `production` |
+| `FRONTEND_URL` | Allowed frontend origin for CORS, for example `http://localhost:3000` |
+| `ARTIFACTS_DIR` | Run artifact directory, defaults to `artifacts` |
 | `GITHUB_TOKEN` | GitHub token with repo access |
 | `GITHUB_OWNER` | Your org or username |
 | `GITHUB_REPO` | Target repository name |
@@ -185,6 +187,7 @@ cp frontend/.env.example frontend/.env.local
 | `AGENT_TIMEOUT_MS` | Agent timeout in milliseconds |
 | `TEAM_NAME` | Run metadata — team or org name |
 | `LEADER_NAME` | Run metadata — operator or owner name |
+| `ALLOW_HOST_FALLBACK` | Keep `false` on hosted deployments; use `true` only for trusted local/demo repos without Docker |
 | `NVIDIA_API_URL` | Model provider chat-completions endpoint |
 | `NVIDIA_API_KEY` | Model provider API key |
 | `WEBHOOK_URL` | Optional notifications webhook (or leave blank) |
@@ -269,16 +272,16 @@ Run analysis → Apply fixes → Commit → Branch / Push
 
 ## Artifacts & Outputs
 
-All run outputs are preserved under `artifacts/runs/`. Each run typically contains:
+All run outputs are preserved under `ARTIFACTS_DIR`, which defaults to `artifacts/`. Each run typically contains:
 
 ```
 artifacts/runs/<run-id>/
-  ├── metadata.json          # Run parameters, status, timestamps
+  ├── result.json            # Run parameters, status, timestamps
   ├── workspace/             # Isolated working copy with applied fixes
-  └── patched-bundle.zip     # Downloadable corrected workspace
+  └── <run-id>.zip           # Downloadable corrected workspace
 ```
 
-A summary is also written to `results.json` at the repo root after each run.
+A latest-run summary is also written to `artifacts/results.json` after each run.
 
 ---
 
@@ -323,7 +326,22 @@ A summary is also written to `results.json` at the repo root after each run.
 > Check `NVIDIA_API_URL`, `NVIDIA_API_KEY`, provider quota, and network availability.
 
 **Docker warnings**
-> AtlasOps falls back to host execution automatically if Docker is unavailable. Docker improves isolation but is not required for basic local testing.
+> AtlasOps uses Docker when available. If Docker is unavailable, host fallback is disabled unless `ALLOW_HOST_FALLBACK=true`. Keep it disabled on hosted deployments unless every input repository is trusted.
+
+---
+
+## Deployment
+
+Deployment guidance lives in [`docs/deployment.md`](docs/deployment.md).
+
+Recommended split:
+
+| Component | Platform | Notes |
+|---|---|---|
+| Backend | Render Docker Web Service | Uses `Dockerfile` and `render.yaml`; `/health` is the health check. |
+| Frontend | Vercel | Set root directory to `frontend` and `NEXT_PUBLIC_API_URL` to the backend URL. |
+
+Free hosted filesystems are ephemeral, so run artifacts are best-effort unless you add durable object storage later.
 
 ---
 
@@ -333,6 +351,7 @@ A summary is also written to `results.json` at the repo root after each run.
 □  Set all backend environment variables
 □  Set NEXT_PUBLIC_API_URL for frontend
 □  Keep secrets in deployment platform — never in source
+□  Keep ALLOW_HOST_FALLBACK=false on shared/free hosting
 □  Verify GitHub token permissions before enabling writeback
 □  Verify model-provider access and quota
 □  Confirm artifact storage is available for preserved run bundles

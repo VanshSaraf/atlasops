@@ -6,12 +6,23 @@ const logger = createLogger("Server");
 
 const app = express();
 
-// CORS for frontend
-app.use((_req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
+const allowedOrigins = config.frontendUrl
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use((req, res, next) => {
+  const requestOrigin = req.headers.origin;
+  if (
+    requestOrigin &&
+    (allowedOrigins.includes("*") || allowedOrigins.includes(requestOrigin))
+  ) {
+    res.header("Access-Control-Allow-Origin", requestOrigin);
+    res.header("Vary", "Origin");
+  }
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (_req.method === "OPTIONS") {
+  if (req.method === "OPTIONS") {
     res.sendStatus(204);
     return;
   }

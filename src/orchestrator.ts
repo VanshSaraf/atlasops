@@ -569,7 +569,22 @@ export class Orchestrator {
       };
     }
 
-    // Fallback: run directly via shell (Railway may use Docker-in-Docker)
+    if (!config.allowHostFallback) {
+      logger.warn(
+        "Docker is not available and host fallback is disabled by ALLOW_HOST_FALLBACK",
+      );
+      return {
+        passed: false,
+        output:
+          "Docker is not available on this host. Host fallback is disabled by ALLOW_HOST_FALLBACK=false.",
+        executionTime: 0,
+        containerId: "none",
+        environmentIssue:
+          "Docker is not available on this host. Hosted deployments should keep ALLOW_HOST_FALLBACK=false unless they run only trusted repositories.",
+      };
+    }
+
+    // Fallback: run directly via shell. This is unsafe for untrusted repos.
     logger.warn("Docker not available — running tests directly via shell");
     const shell = new ShellService();
     const attempts = await this.buildHostRunAttempts(analysis, shell);
@@ -1386,8 +1401,9 @@ export class Orchestrator {
   }
 
   private writeResultsJson(result: OrchestratorResult): void {
-    const latestResultsPath = path.resolve(process.cwd(), "results.json");
-    const runsDir = path.resolve(process.cwd(), "artifacts", "runs");
+    const artifactsRoot = path.resolve(process.cwd(), config.artifactsDir);
+    const latestResultsPath = path.join(artifactsRoot, "results.json");
+    const runsDir = path.join(artifactsRoot, "runs");
     const repoSlug = path.basename(result.repository).replace(/[^a-zA-Z0-9_-]/g, "_");
     const artifactPath = path.join(
       runsDir,
@@ -1410,7 +1426,12 @@ export class Orchestrator {
     result: OrchestratorResult,
     repoPath: string,
   ): OrchestratorResult["artifact"] {
-    const runDir = path.resolve(process.cwd(), "artifacts", "runs", result.id);
+    const runDir = path.resolve(
+      process.cwd(),
+      config.artifactsDir,
+      "runs",
+      result.id,
+    );
     const workspaceDir = path.join(runDir, "workspace");
     const zipPath = path.join(runDir, `${result.id}.zip`);
     const resultPath = path.join(runDir, "result.json");

@@ -7,9 +7,12 @@ artifacts/runs
 .env
 .env.local
 .env.*
+!.env.example
+!frontend/.env.example
 frontend/.env.local
 frontend/.env.production
 .env.production
 *.log
+artifacts/
 results.json
 .DS_Store
