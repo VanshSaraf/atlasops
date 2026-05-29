@@ -6,7 +6,13 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsc -w & node --watch dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate:samples": "node scripts/validate-sample-repos.js",
+    "frontend:build": "npm --prefix frontend run build",
+    "verify": "node scripts/verify.js",
+    "verify:all": "node scripts/verify.js --all"
   },
   "keywords": [
     "cicd",
@@ -27,6 +33,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.3.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   }
 }

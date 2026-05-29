@@ -224,6 +224,28 @@ Dashboard → [http://localhost:3000](http://localhost:3000)
 
 ## Testing AtlasOps
 
+### Backend unit tests
+
+```bash
+npm test
+```
+
+The current backend tests cover request validation defaults, artifact-backed run history safety, failure classification, and deterministic fix generation. They avoid Docker, GitHub, model-provider, and other network calls so they can run quickly in local development or future CI.
+
+### Local verification
+
+```bash
+npm run verify
+```
+
+`npm run verify` runs backend typechecking, backend unit tests, sample repository fixture validation, and backend build.
+
+```bash
+npm run verify:all
+```
+
+`npm run verify:all` runs the same core checks plus the frontend production build. The sample repository validator checks that bundled Python and Node sample repos match the structure AtlasOps expects without running Docker, package installs, or model calls.
+
 ### Recommended order
 
 ```
