@@ -43,7 +43,7 @@ export function validateRunRequest(
 
   const teamName = normalizeOptionalString(body?.teamName);
   const leaderName = normalizeOptionalString(body?.leaderName);
-  const dryRun = typeof body?.dryRun === "boolean" ? body.dryRun : undefined;
+  const dryRun = typeof body?.dryRun === "boolean" ? body.dryRun : true;
 
   return {
     ok: true,

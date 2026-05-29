@@ -162,6 +162,18 @@ const EVENT_CONFIG: Record<string, StepInfo> = {
     color: "text-ink-200",
     bgColor: "bg-white/10",
   },
+  WRITEBACK_REQUESTED: {
+    icon: <GitPullRequest className="w-4 h-4" />,
+    label: "Writeback Requested",
+    color: "text-accent-300",
+    bgColor: "bg-accent-500/15",
+  },
+  WRITEBACK_FAILED_SAFE: {
+    icon: <AlertTriangle className="w-4 h-4" />,
+    label: "Writeback Failed Safely",
+    color: "text-accent-300",
+    bgColor: "bg-accent-500/15",
+  },
   PUSH_ATTEMPT: {
     icon: <Upload className="w-4 h-4" />,
     label: "Attempting Push",
@@ -170,7 +182,7 @@ const EVENT_CONFIG: Record<string, StepInfo> = {
   },
   PUSH: {
     icon: <Upload className="w-4 h-4" />,
-    label: "Pushed to Remote",
+    label: "Fix Branch Pushed",
     color: "text-emerald-300",
     bgColor: "bg-emerald-500/15",
   },
@@ -221,6 +233,12 @@ const EVENT_CONFIG: Record<string, StepInfo> = {
     label: "Pull Request Created",
     color: "text-emerald-300",
     bgColor: "bg-emerald-500/15",
+  },
+  PR_CREATE_SKIPPED: {
+    icon: <GitPullRequest className="w-4 h-4" />,
+    label: "PR Creation Unavailable",
+    color: "text-accent-300",
+    bgColor: "bg-accent-500/15",
   },
   PR_CREATE_FAILED: {
     icon: <GitPullRequest className="w-4 h-4" />,

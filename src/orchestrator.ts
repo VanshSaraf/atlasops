@@ -134,6 +134,7 @@ export class Orchestrator {
     const teamName = options.teamName || config.teamName;
     const leaderName = options.leaderName || config.leaderName;
     const retryLimit = options.retryLimit || config.retryLimit;
+    const dryRun = options.dryRun ?? true;
     // branchName will be set after clone to the default branch
 
     this.addTimeline(timeline, "ORCHESTRATOR_START", `repo=${options.repoUrl}`);
@@ -167,7 +168,7 @@ export class Orchestrator {
     }
     this.addTimeline(timeline, "CLONE_DONE", `lang=${analysis.language}`);
 
-    // Get the current default branch (main/master) - push directly to it
+    // Track the source branch only as the base for local work and PR targets.
     const repoPath = analysis.localPath;
     const git = simpleGit(repoPath);
     await this.ensureGitRepository(repoPath);
@@ -268,56 +269,37 @@ export class Orchestrator {
               await this.commitChanges(repoPath, commitMsg, branchName);
               this.addTimeline(timeline, "COMMIT", commitMsg);
 
-              if (!options.dryRun && this.supportsRemotePush(options.repoUrl)) {
-                this.addTimeline(
-                  timeline,
-                  "PUSH_ATTEMPT",
-                  `branch=${branchName}`,
-                );
-                let pushSuccess = await this.pushBranch(
+              if (!dryRun && this.supportsRemotePush(options.repoUrl)) {
+                const writeback = await this.writebackViaFixBranch(
                   repoPath,
-                  branchName,
                   options.repoUrl,
+                  branchName,
+                  timeline,
                 );
-                if (pushSuccess) {
-                  this.addTimeline(timeline, "PUSH", `Pushed to ${branchName}`);
-                } else {
-                  // Fallback: push via fix branch + PR
-                  this.addTimeline(
-                    timeline,
-                    "PUSH_FALLBACK",
-                    "Trying fix branch + PR",
-                  );
-                  const fallback = await this.pushViaFixBranch(
-                    repoPath,
-                    options.repoUrl,
-                    branchName,
-                  );
-                  if (fallback.pushed) {
-                    this.addTimeline(timeline, "PUSH", "Pushed via fix branch");
-                    if (fallback.prUrl) {
-                      pullRequestUrl = fallback.prUrl;
-                      this.addTimeline(timeline, "PR_CREATED", fallback.prUrl);
-                    }
-                  } else {
-                    this.addTimeline(
-                      timeline,
-                      "PUSH_FAILED",
-                      "Could not push - check token permissions",
-                    );
-                  }
+                if (writeback.prUrl) {
+                  pullRequestUrl = writeback.prUrl;
+                }
+                if (!writeback.pushed) {
+                  failureDetails = {
+                    category: "PERMISSION",
+                    message:
+                      "Writeback failed safely: AtlasOps could not push a fix branch, so no remote changes were made and artifacts were preserved.",
+                    rawOutputExcerpt: this.createOutputExcerpt(
+                      lastTestResult?.output ?? "",
+                    ),
+                  };
                 }
               } else if (!this.supportsRemotePush(options.repoUrl)) {
                 this.addTimeline(
                   timeline,
                   "PUSH_SKIPPED",
-                  "Local repository source detected - skipping remote push",
+                  "Local repository source detected - no remote changes were made.",
                 );
               } else {
                 this.addTimeline(
                   timeline,
                   "WRITEBACK_SKIPPED",
-                  "Review-first mode is enabled - fixes were preserved as downloadable artifacts instead of being pushed.",
+                  "Review-first mode: no remote changes were made. Fixes were preserved as downloadable artifacts.",
                 );
               }
               continue; // try again with the fix applied
@@ -394,81 +376,54 @@ export class Orchestrator {
       await this.commitChanges(repoPath, commitMsg, branchName);
       this.addTimeline(timeline, "COMMIT", commitMsg);
 
-      // 2g. Push (unless dry-run)
-      if (!options.dryRun && this.supportsRemotePush(options.repoUrl)) {
-        this.addTimeline(timeline, "PUSH_ATTEMPT", `branch=${branchName}`);
-        let pushSuccess = await this.pushBranch(
+      // 2g. Optional writeback. Review-first is the default and never pushes.
+      if (!dryRun && this.supportsRemotePush(options.repoUrl)) {
+        const writeback = await this.writebackViaFixBranch(
           repoPath,
-          branchName,
           options.repoUrl,
+          branchName,
+          timeline,
         );
-
-        if (pushSuccess) {
-          this.addTimeline(timeline, "PUSH", `Pushed to ${branchName}`);
-        } else {
-          // Fallback: push via fix branch + PR
-          this.addTimeline(
-            timeline,
-            "PUSH_FALLBACK",
-            "Push to main failed - trying fix branch + PR",
-          );
-          const fallback = await this.pushViaFixBranch(
-            repoPath,
-            options.repoUrl,
-            branchName,
-          );
-          pushSuccess = fallback.pushed;
-          if (fallback.pushed) {
-            this.addTimeline(timeline, "PUSH", "Pushed via fix branch");
-            if (fallback.prUrl) {
-              pullRequestUrl = fallback.prUrl;
-              this.addTimeline(timeline, "PR_CREATED", fallback.prUrl);
-            }
-          } else {
-            failureDetails = {
-              category: "PERMISSION",
-              message:
-                "AtlasOps generated fixes, but the configured GitHub token could not push them to the target repository.",
-              rawOutputExcerpt: this.createOutputExcerpt(
-                lastTestResult?.output ?? "",
-              ),
-            };
-            this.addTimeline(
-              timeline,
-              "PUSH_FAILED",
-              "Could not push - check token permissions",
-            );
-          }
+        if (writeback.prUrl) {
+          pullRequestUrl = writeback.prUrl;
         }
 
-        if (pushSuccess) {
-          // 2h. Wait for CI and check result (only if push succeeded)
+        if (writeback.pushed) {
+          // 2h. Wait for CI and check result (only if the fix branch pushed)
           this.addTimeline(timeline, "CI_MONITOR_START");
-          const ciPassed = await this.monitorCI(branchName);
+          const ciPassed = await this.monitorCI(writeback.branchName);
           this.addTimeline(timeline, ciPassed ? "CI_PASSED" : "CI_FAILED");
 
           if (ciPassed) {
             passed = true;
             break;
           }
+        } else {
+          failureDetails = {
+            category: "PERMISSION",
+            message:
+              "Writeback failed safely: AtlasOps could not push a fix branch, so no remote changes were made and artifacts were preserved.",
+            rawOutputExcerpt: this.createOutputExcerpt(
+              lastTestResult?.output ?? "",
+            ),
+          };
         }
       } else if (!this.supportsRemotePush(options.repoUrl)) {
         this.addTimeline(
           timeline,
           "PUSH_SKIPPED",
-          "Local repository source detected - skipping remote push",
+          "Local repository source detected - no remote changes were made.",
         );
       } else {
         this.addTimeline(
           timeline,
           "WRITEBACK_SKIPPED",
-          "Review-first mode is enabled - fixes were preserved as downloadable artifacts instead of being pushed.",
+          "Review-first mode: no remote changes were made. Fixes were preserved as downloadable artifacts.",
         );
       }
     }
 
-    // PR URL may have been set during push fallback
-    // (If push to main succeeded directly, no PR is needed)
+    // PR URL may have been set during safe fix-branch writeback.
 
     const status = passed ? "PASSED" : "FAILED";
     this.addTimeline(timeline, "ORCHESTRATOR_DONE", status);
@@ -492,7 +447,7 @@ export class Orchestrator {
 
     result.artifact = this.persistRunArtifacts(result, repoPath);
     result.writebackEnabled =
-      !options.dryRun && this.supportsRemotePush(options.repoUrl);
+      !dryRun && this.supportsRemotePush(options.repoUrl);
     this.writeResultsJson(result);
     logger.info(`Finished: ${status} after ${iteration} iteration(s)`);
 
@@ -1147,62 +1102,61 @@ export class Orchestrator {
     return token;
   }
 
-  private async pushBranch(
+  private async writebackViaFixBranch(
     repoPath: string,
-    branch: string,
     repoUrl: string,
-  ): Promise<boolean> {
-    const git = simpleGit(repoPath);
+    defaultBranch: string,
+    timeline: TimelineEntry[],
+  ): Promise<{ pushed: boolean; branchName: string; prUrl?: string }> {
+    this.addTimeline(
+      timeline,
+      "WRITEBACK_REQUESTED",
+      "Writeback requested: AtlasOps will create a fix branch and will not mutate the default branch.",
+    );
 
-    const token = await this.injectTokenIntoRemote(git, repoUrl);
-    if (!token) return false;
+    const result = await this.pushViaFixBranch(repoPath, repoUrl, defaultBranch);
 
-    try {
-      // Log what we're about to push
-      const status = await git.status();
-      const log = await git.log({ maxCount: 1 });
-      logger.info(
-        `Git status before push: clean=${status.isClean()}, staged=${status.staged.length}, branch=${status.current}`,
+    if (!result.pushed) {
+      this.addTimeline(
+        timeline,
+        "WRITEBACK_FAILED_SAFE",
+        "Writeback failed safely: artifacts preserved and no remote changes were made.",
       );
-      logger.info(
-        `Latest commit: ${log.latest?.hash?.substring(0, 7)} - ${log.latest?.message}`,
-      );
-
-      const pushResult = await git.push("origin", branch, [
-        "--set-upstream",
-        "--force",
-      ]);
-      logger.info(`Push result: ${JSON.stringify(pushResult)}`);
-      logger.info(`Pushed to branch: ${branch}`);
-      return true;
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      logger.error(`Failed to push to ${branch}: ${errMsg}`);
-      // Log common failure reasons
-      if (errMsg.includes("403") || errMsg.includes("Permission")) {
-        logger.error("Token lacks push permission. Ensure token has 'repo' or 'Contents: Read and write' scope.");
-      } else if (errMsg.includes("401") || errMsg.includes("Authentication")) {
-        logger.error("Authentication failed. Check if your GitHub token is valid and not expired.");
-      } else if (errMsg.includes("404")) {
-        logger.error("Repository not found. Check the repo URL and token access.");
-      }
-      return false;
+      return result;
     }
+
+    this.addTimeline(
+      timeline,
+      "PUSH",
+      `Writeback requested: created/pushed fix branch ${result.branchName}.`,
+    );
+
+    if (result.prUrl) {
+      this.addTimeline(timeline, "PR_CREATED", result.prUrl);
+    } else {
+      this.addTimeline(
+        timeline,
+        "PR_CREATE_SKIPPED",
+        "Fix branch was pushed, but PR creation failed or was unavailable. Artifacts were preserved for review.",
+      );
+    }
+
+    return result;
   }
 
   /**
-   * Fallback: create a fix branch, push it, then create a PR
+   * Create a fix branch, push it, then try to create a PR.
+   * This path never pushes to the current/default branch.
    */
   private async pushViaFixBranch(
     repoPath: string,
     repoUrl: string,
     defaultBranch: string,
-  ): Promise<{ pushed: boolean; prUrl?: string }> {
+  ): Promise<{ pushed: boolean; branchName: string; prUrl?: string }> {
     const git = simpleGit(repoPath);
     const fixBranch = `fix/atlasops-${Date.now()}`;
 
     try {
-      // Create fix branch from current HEAD
       await git.checkoutLocalBranch(fixBranch);
       logger.info(`Created fix branch: ${fixBranch}`);
     } catch {
@@ -1210,7 +1164,7 @@ export class Orchestrator {
         await git.checkout(fixBranch);
       } catch {
         logger.error(`Could not create fix branch ${fixBranch}`);
-        return { pushed: false };
+        return { pushed: false, branchName: fixBranch };
       }
     }
 
@@ -1222,11 +1176,11 @@ export class Orchestrator {
       } catch {
         /* best-effort */
       }
-      return { pushed: false };
+      return { pushed: false, branchName: fixBranch };
     }
 
     try {
-      await git.push("origin", fixBranch, ["--set-upstream", "--force"]);
+      await git.push("origin", fixBranch, ["--set-upstream"]);
       logger.info(`Pushed fix branch: ${fixBranch}`);
     } catch (err) {
       logger.error(
@@ -1238,7 +1192,7 @@ export class Orchestrator {
       } catch {
         /* best-effort */
       }
-      return { pushed: false };
+      return { pushed: false, branchName: fixBranch };
     }
 
     // Create PR from fix branch to default branch
@@ -1260,10 +1214,10 @@ export class Orchestrator {
 
     if (prResult) {
       logger.info(`PR created: ${prResult.url}`);
-      return { pushed: true, prUrl: prResult.url };
+      return { pushed: true, branchName: fixBranch, prUrl: prResult.url };
     } else {
       logger.warn("Fix branch pushed but PR creation failed");
-      return { pushed: true };
+      return { pushed: true, branchName: fixBranch };
     }
   }
 

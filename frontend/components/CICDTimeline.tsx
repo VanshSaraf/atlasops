@@ -86,13 +86,16 @@ const EVENT_LABELS: Record<string, string> = {
   FIX_APPLIED: "Patch applied to file",
   COMMIT: "Changes committed",
   COMMITTED: "Changes committed",
+  WRITEBACK_REQUESTED: "Writeback requested",
+  WRITEBACK_FAILED_SAFE: "Writeback failed safely",
   PUSH_ATTEMPT: "Attempting push to remote",
-  PUSH: "Pushed to remote",
+  PUSH: "Fix branch pushed to remote",
   PUSH_SKIPPED: "Remote push skipped",
   WRITEBACK_SKIPPED: "Review-first mode kept changes local",
   PUSH_FALLBACK: "Trying fix branch + PR",
   PUSH_FAILED: "Push failed — check token permissions",
   PUSHED: "Pushed to remote",
+  PR_CREATE_SKIPPED: "PR creation unavailable",
   PR_CREATED: "Pull request created",
   CI_MONITOR_START: "Monitoring CI pipeline",
   CI_MONITORING: "Monitoring CI pipeline",
@@ -289,9 +292,12 @@ function EventDot({ event }: { event: string }) {
     event === "PUSH" ||
     event === "PUSH_SKIPPED" ||
     event === "WRITEBACK_SKIPPED" ||
+    event === "WRITEBACK_REQUESTED" ||
+    event === "WRITEBACK_FAILED_SAFE" ||
     event === "PUSH_ATTEMPT" ||
     event === "PUSH_FALLBACK" ||
-    event === "PR_CREATED"
+    event === "PR_CREATED" ||
+    event === "PR_CREATE_SKIPPED"
   ) {
     color = "bg-accent-500";
   } else if (

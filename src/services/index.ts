@@ -8,3 +8,8 @@ export { DockerService } from "./docker.service";
 export type { DockerTestResult } from "./docker.service";
 export { RuntimeDiagnosticsService } from "./runtime-diagnostics.service";
 export type { RuntimeDiagnostics } from "./runtime-diagnostics.service";
+export { RunArtifactsService } from "./run-artifacts.service";
+export type {
+  RunArtifactDetail,
+  RunArtifactSummary,
+} from "./run-artifacts.service";

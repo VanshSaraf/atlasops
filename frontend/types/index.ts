@@ -1,12 +1,6 @@
 export type RunStatus = "PASSED" | "FAILED" | "RUNNING" | "PENDING";
 
-export type BugType =
-  | "LINTING"
-  | "SYNTAX"
-  | "LOGIC"
-  | "TYPE_ERROR"
-  | "IMPORT"
-  | "INDENTATION";
+export type BugType = string;
 
 export interface FixRecord {
   file: string;
@@ -23,14 +17,15 @@ export interface TimelineEntry {
 }
 
 export interface RunArtifact {
-  runDirectory: string;
-  workspaceDirectory: string;
+  runDirectory?: string;
+  workspaceDirectory?: string;
   zipPath?: string;
   downloadPath?: string;
+  zipExists?: boolean;
 }
 
 export interface FailureDetails {
-  category: "SETUP" | "TEST" | "PROVIDER" | "PERMISSION";
+  category: string;
   message: string;
   failingCommand?: string;
   rawOutputExcerpt?: string;
@@ -56,6 +51,27 @@ export interface AgentRun {
   pullRequestUrl?: string;
   failureDetails?: FailureDetails;
   artifact?: RunArtifact;
+}
+
+export interface RunSummary {
+  runId: string;
+  status?: string;
+  repoUrl?: string;
+  repositorySource?: string;
+  startedAt?: string;
+  completedAt?: string;
+  timestamp?: string;
+  duration?: number;
+  attempts?: number;
+  retryCount?: number;
+  totalFixes?: number;
+  appliedFixes?: number;
+  artifactAvailable: boolean;
+  downloadPath?: string;
+  failureSummary?: {
+    category?: string;
+    message?: string;
+  };
 }
 
 export interface HealthResponse {

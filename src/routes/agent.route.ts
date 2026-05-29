@@ -1,11 +1,11 @@
-import fs from "fs";
-import path from "path";
 import { Router, Request, Response } from "express";
 import { Orchestrator, TimelineEntry } from "../orchestrator";
-import { config, createLogger, validateRunRequest } from "../utils";
+import { RunArtifactsService } from "../services";
+import { createLogger, validateRunRequest } from "../utils";
 
 const logger = createLogger("AgentRoute");
 const router = Router();
+const runArtifacts = new RunArtifactsService();
 
 export interface RunAgentRequest {
   repoUrl: string;
@@ -22,28 +22,63 @@ export interface RunAgentResponse {
   timestamp: string;
 }
 
-router.get("/runs/:runId/download", (req: Request, res: Response) => {
+router.get("/runs", (_req: Request, res: Response) => {
+  const runs = runArtifacts.listRuns();
+  res.json({
+    success: true,
+    message: "Run history loaded",
+    data: { runs },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.get("/runs/:runId", (req: Request, res: Response) => {
   const rawRunId = req.params.runId;
   const runId = Array.isArray(rawRunId) ? rawRunId[0] : rawRunId;
 
-  if (!runId) {
+  if (!runId || !runArtifacts.isValidRunId(runId)) {
     res.status(400).json({
       success: false,
-      message: "Missing runId",
+      message: "Invalid runId",
       timestamp: new Date().toISOString(),
     });
     return;
   }
 
-  const artifactPath = path.resolve(
-    process.cwd(),
-    config.artifactsDir,
-    "runs",
-    runId,
-    `${runId}.zip`,
-  );
+  const run = runArtifacts.getRun(runId);
+  if (!run) {
+    res.status(404).json({
+      success: false,
+      message: "Run not found",
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
 
-  if (!fs.existsSync(artifactPath)) {
+  res.json({
+    success: true,
+    message: "Run loaded",
+    data: run.result,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.get("/runs/:runId/download", (req: Request, res: Response) => {
+  const rawRunId = req.params.runId;
+  const runId = Array.isArray(rawRunId) ? rawRunId[0] : rawRunId;
+
+  if (!runId || !runArtifacts.isValidRunId(runId)) {
+    res.status(400).json({
+      success: false,
+      message: "Invalid runId",
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  const artifactPath = runArtifacts.getZipPath(runId);
+
+  if (!artifactPath) {
     res.status(404).json({
       success: false,
       message: "Run artifact not found",
@@ -70,7 +105,7 @@ router.post("/run-agent", async (req: Request, res: Response) => {
   }
   const body = validation.data;
 
-  const dryRun = body.dryRun ?? false;
+  const dryRun = body.dryRun ?? true;
 
   logger.info(`Agent run requested: repo=${body.repoUrl}, dryRun=${dryRun}`);
 
@@ -121,7 +156,7 @@ router.post("/run-agent-stream", async (req: Request, res: Response) => {
   }
   const body = validation.data;
 
-  const dryRun = body.dryRun ?? false;
+  const dryRun = body.dryRun ?? true;
 
   logger.info(
     `[SSE] Agent stream requested: repo=${body.repoUrl}, dryRun=${dryRun}`,

@@ -60,7 +60,7 @@ AtlasOps closes that loop:
 │  ▸ Multi-pass remediation with retry control            │
 │  ▸ Deterministic parsing + model-assisted fallback      │
 │  ▸ Review-first artifact bundle output                  │
-│  ▸ Optional GitHub branch / PR writeback                │
+│  ▸ Optional GitHub fix-branch / PR writeback            │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -260,12 +260,12 @@ Run analysis → Inspect diagnostics → Review generated changes
 
 ### GitHub writeback (optional)
 
-Enable the writeback toggle in the run form. AtlasOps will attempt branch or push operations. If permissions are insufficient, the run still preserves local artifacts.
+Enable the writeback toggle in the run form only when you want AtlasOps to attempt remote writeback. Writeback is branch/PR-based: AtlasOps creates a new `fix/atlasops-*` branch, pushes only that branch, and then tries to open a PR. It never pushes directly to `main`, `master`, or the current default branch. If permissions are insufficient or PR creation fails, the run still preserves local artifacts.
 
 ```
-Run analysis → Apply fixes → Commit → Branch / Push
-                                  ↓ (on permission failure)
-                          Preserve local artifact bundle
+Run analysis → Apply fixes → Commit locally → Create fix branch → Push fix branch → Open PR
+                                                     ↓ (on permission / PR failure)
+                                             Preserve local artifact bundle
 ```
 
 ---
@@ -282,6 +282,18 @@ artifacts/runs/<run-id>/
 ```
 
 A latest-run summary is also written to `artifacts/results.json` after each run.
+
+### Artifact-backed run APIs
+
+Run history is currently backed by filesystem artifacts, not a database:
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/runs` | Lists persisted run summaries from `ARTIFACTS_DIR/runs`, newest first. |
+| `GET /api/runs/:runId` | Returns the stored `result.json` for one run plus artifact download metadata. |
+| `GET /api/runs/:runId/download` | Downloads the patched workspace zip if it exists. |
+
+On ephemeral hosting, old run history and downloads may disappear after restarts, redeploys, or instance replacement unless durable storage is added.
 
 ---
 
@@ -303,8 +315,8 @@ A latest-run summary is also written to `artifacts/results.json` after each run.
 | File | Responsibility |
 |---|---|
 | `frontend/app/page.tsx` | Landing page |
-| `frontend/app/dashboard/page.tsx` | Dashboard workspace |
-| `frontend/app/dashboard/runs/[id]/page.tsx` | Run detail and diagnostics |
+| `frontend/app/dashboard/page.tsx` | Dashboard workspace with artifact-backed run history |
+| `frontend/app/dashboard/runs/[id]/page.tsx` | Run detail and diagnostics loaded from persisted backend artifacts |
 | `frontend/components/RunTriggerForm.tsx` | Launch flow and writeback toggle |
 | `frontend/components/CICDTimeline.tsx` | Recovery timeline UI |
 | `frontend/components/FixesTable.tsx` | Applied fixes table |
@@ -319,8 +331,8 @@ A latest-run summary is also written to `artifacts/results.json` after each run.
 **Run fails immediately**
 > Verify the backend is running, `NEXT_PUBLIC_API_URL` points to `http://localhost:3001`, the local path exists, and required runtimes (`node`, `python`) are installed.
 
-**GitHub push fails with `403`**
-> Your token lacks write access to the target repo. AtlasOps will still preserve a local artifact bundle for review.
+**GitHub writeback fails with `403`**
+> Your token lacks write access to create/push a fix branch or open a PR. AtlasOps will not push to the default branch and will still preserve a local artifact bundle for review.
 
 **Provider errors like `HTTP unknown`**
 > Check `NVIDIA_API_URL`, `NVIDIA_API_KEY`, provider quota, and network availability.

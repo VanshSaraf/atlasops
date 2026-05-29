@@ -1,15 +1,31 @@
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-export const ENDPOINTS = {
-  health: `${API_URL}/health`,
-  runAgent: `${API_URL}/api/run-agent`,
-  runAgentStream: `${API_URL}/api/run-agent-stream`,
-  analyze: `${API_URL}/api/analyze`,
-} as const;
+export function getApiUrl(): string {
+  if (typeof window === "undefined") {
+    return API_URL;
+  }
+
+  try {
+    const raw = window.localStorage.getItem("atlasops-settings");
+    const parsed = raw ? JSON.parse(raw) : null;
+    const savedUrl = parsed?.state?.apiUrl;
+    if (typeof savedUrl === "string" && savedUrl.trim()) {
+      return savedUrl.trim().replace(/\/+$/, "");
+    }
+  } catch {
+    // Ignore malformed persisted settings and fall back to the build-time URL.
+  }
+
+  return API_URL.replace(/\/+$/, "");
+}
+
+export function apiUrl(path: string): string {
+  return `${getApiUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 export function getRunDownloadUrl(runId: string): string {
-  return `${API_URL}/api/runs/${runId}/download`;
+  return apiUrl(`/api/runs/${runId}/download`);
 }
 
 export const APP_NAME = "AtlasOps";

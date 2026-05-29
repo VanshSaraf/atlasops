@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useAgentStore } from "@/store/useAgentStore";
 import {
   StatsGrid,
@@ -13,7 +14,19 @@ import {
 import { formatDuration } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { runs, stats, result, isRunning } = useAgentStore();
+  const {
+    runs,
+    stats,
+    result,
+    isRunning,
+    isLoadingHistory,
+    historyError,
+    loadRuns,
+  } = useAgentStore();
+
+  useEffect(() => {
+    loadRuns();
+  }, [loadRuns]);
   const workflowSteps = [
     {
       step: "01",
@@ -125,6 +138,9 @@ export default function DashboardPage() {
             <div>
               <p className="eyebrow">History</p>
               <h2 className="section-title mt-2">Recent Runs</h2>
+              <p className="mt-1 font-mono text-[11px] text-ink-500">
+                Artifact-backed run history from the backend artifacts directory
+              </p>
             </div>
             {isRunning && (
               <span className="inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/10 px-3 py-1 font-mono text-[11px] font-medium text-brand-300">
@@ -133,7 +149,22 @@ export default function DashboardPage() {
               </span>
             )}
           </div>
-          {runs.length === 0 ? (
+          {isLoadingHistory ? (
+            <div className="glass-card flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500/30 border-t-brand-300" />
+              <p className="mt-4 text-sm text-ink-300">Loading previous runs...</p>
+              <p className="mt-1 font-mono text-[11px] text-ink-500">
+                Reading persisted artifacts from the backend
+              </p>
+            </div>
+          ) : historyError ? (
+            <div className="glass-card flex flex-col items-center justify-center py-20 text-center">
+              <p className="text-sm text-red-300">Could not load run history. Backend may be unavailable.</p>
+              <p className="mt-2 max-w-md text-xs text-ink-500">
+                New runs can still appear here after the backend reconnects. On free or ephemeral hosting, older artifact-backed runs may disappear.
+              </p>
+            </div>
+          ) : runs.length === 0 ? (
             <div className="glass-card flex flex-col items-center justify-center py-20 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/8 bg-black/10">
                 <svg
@@ -150,9 +181,9 @@ export default function DashboardPage() {
                   />
                 </svg>
               </div>
-              <p className="mt-4 text-sm text-ink-300">No recovery runs yet</p>
+              <p className="mt-4 text-sm text-ink-300">No runs yet. Launch a repo analysis to create your first run.</p>
               <p className="mt-1 font-mono text-[11px] text-ink-500">
-                Add a repository URL and launch a run to populate the workspace
+                Run history is stored in backend artifacts and may reset on ephemeral hosting
               </p>
             </div>
           ) : (

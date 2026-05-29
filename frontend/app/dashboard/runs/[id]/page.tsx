@@ -1,16 +1,69 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import type { AgentRun } from "@/types";
 import { useAgentStore } from "@/store/useAgentStore";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDuration, formatDate, extractRepoName } from "@/lib/utils";
-import { getAgentRunDownloadUrl } from "@/lib/api";
+import { getAgentRunDownloadUrl, getRun } from "@/lib/api";
 
 export default function RunDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const runs = useAgentStore((s) => s.runs);
-  const run = runs.find((r) => r.id === params.id);
+  const runId = typeof params.id === "string" ? params.id : "";
+  const { runs, addRun, setActiveRun } = useAgentStore();
+  const memoryRun = runs.find((r) => r.id === runId);
+  const [fetchedRun, setFetchedRun] = useState<AgentRun | null>(null);
+  const [isLoadingRun, setIsLoadingRun] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const run = memoryRun ?? fetchedRun;
+
+  useEffect(() => {
+    if (!runId || memoryRun) {
+      if (memoryRun) setActiveRun(memoryRun);
+      return;
+    }
+
+    let active = true;
+    setIsLoadingRun(true);
+    setRunError(null);
+
+    getRun(runId)
+      .then((loadedRun) => {
+        if (!active) return;
+        setFetchedRun(loadedRun);
+        addRun(loadedRun);
+        setActiveRun(loadedRun);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setRunError(err instanceof Error ? err.message : "Run not found");
+      })
+      .finally(() => {
+        if (active) setIsLoadingRun(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [addRun, memoryRun, runId, setActiveRun]);
+
+  if (isLoadingRun) {
+    return (
+      <div className="page-container animate-fade-in">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500/30 border-t-brand-300" />
+          <h2 className="mt-6 text-xl font-semibold text-white">
+            Loading run...
+          </h2>
+          <p className="mt-2 text-sm text-ink-400">
+            Reading artifact-backed run history from the backend.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!run) {
     return (
@@ -35,7 +88,7 @@ export default function RunDetailPage() {
             Run Not Found
           </h2>
           <p className="mt-2 text-sm text-ink-400">
-            This run may have been deleted or doesn&apos;t exist.
+            {runError || "This run may have been deleted or does not exist in backend artifacts."}
           </p>
           <button
             onClick={() => router.push("/dashboard/runs")}
@@ -53,12 +106,17 @@ export default function RunDetailPage() {
     run.totalFailures > 0
       ? Math.round((run.totalFixes / run.totalFailures) * 100)
       : 0;
-  const setupIssue = run.timeline.find((entry) => entry.event === "SETUP_ERROR");
-  const downloadUrl = run.artifact?.downloadPath
+  const timeline = run.timeline ?? [];
+  const fixes = run.fixes ?? [];
+  const formattedFailures = run.formattedFailures ?? [];
+  const setupIssue = timeline.find((entry) => entry.event === "SETUP_ERROR");
+  const downloadUrl = run.artifact?.downloadPath || run.artifact?.zipExists
     ? getAgentRunDownloadUrl(run.id)
     : null;
   const failureDetails = run.failureDetails;
-  const changedFiles = Array.from(new Set(run.fixes.filter((fix) => fix.fixApplied).map((fix) => fix.file)));
+  const changedFiles = Array.from(
+    new Set(fixes.filter((fix) => fix.fixApplied).map((fix) => fix.file)),
+  );
 
   return (
     <div className="page-container space-y-6 animate-fade-in">
@@ -425,21 +483,21 @@ export default function RunDetailPage() {
               Pipeline Timeline
             </h3>
             <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-xs font-medium text-ink-300">
-              {run.timeline?.length ?? 0} events
+              {timeline.length} events
             </span>
         </div>
 
-        {run.timeline && run.timeline.length > 0 ? (
+        {timeline.length > 0 ? (
           <div className="relative">
             {/* Timeline line */}
             <div className="absolute bottom-0 left-4 top-0 w-0.5 bg-gradient-to-b from-brand-500 via-brand-600 to-transparent" />
 
             <div className="space-y-4">
-              {run.timeline.map((entry, idx) => (
+              {timeline.map((entry, idx) => (
                 <TimelineItem
                   key={idx}
                   entry={entry}
-                  isLast={idx === run.timeline.length - 1}
+                  isLast={idx === timeline.length - 1}
                 />
               ))}
             </div>
@@ -452,20 +510,20 @@ export default function RunDetailPage() {
       </div>
 
       {/* Fixes Applied */}
-      {run.fixes && run.fixes.length > 0 && (
+      {fixes.length > 0 && (
         <div className="glass-card">
           <div className="mb-6 flex items-center justify-between">
             <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink-500">
               Fixes Applied
             </h3>
             <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-              {run.fixes.filter((f) => f.fixApplied).length} /{" "}
-              {run.fixes.length} successful
+              {fixes.filter((f) => f.fixApplied).length} /{" "}
+              {fixes.length} successful
             </span>
           </div>
 
           <div className="space-y-3">
-            {run.fixes.map((fix, idx) => (
+            {fixes.map((fix, idx) => (
               <FixCard key={idx} fix={fix} />
             ))}
           </div>
@@ -473,13 +531,13 @@ export default function RunDetailPage() {
       )}
 
       {/* Formatted Failures (Judge Output) */}
-      {run.formattedFailures && run.formattedFailures.length > 0 && (
+      {formattedFailures.length > 0 && (
         <div className="glass-card">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-ink-500">
             Judge Output Format
           </h3>
           <div className="rounded-[22px] border border-white/8 bg-surface p-4 font-mono text-xs">
-            {run.formattedFailures.map((line, idx) => (
+            {formattedFailures.map((line, idx) => (
               <div
                 key={idx}
                 className="border-b border-white/8 py-1 text-ink-200 last:border-0"

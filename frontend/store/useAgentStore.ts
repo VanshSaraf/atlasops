@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { AgentRun, DashboardStats } from "@/types";
-import { triggerAgent } from "@/lib/api";
+import { listRuns, triggerAgent } from "@/lib/api";
 import type { RunAgentRequest } from "@/types";
 
 interface AgentState {
@@ -8,12 +8,16 @@ interface AgentState {
   activeRun: AgentRun | null;
   result: AgentRun | null;
   isRunning: boolean;
+  isLoadingHistory: boolean;
   error: string | null;
+  historyError: string | null;
 
   stats: DashboardStats;
 
+  loadRuns: () => Promise<void>;
   startRun: (payload: RunAgentRequest) => Promise<void>;
   setActiveRun: (run: AgentRun | null) => void;
+  setRuns: (runs: AgentRun[]) => void;
   addRun: (run: AgentRun) => void;
   clearError: () => void;
   clearResult: () => void;
@@ -37,13 +41,36 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   activeRun: null,
   result: null,
   isRunning: false,
+  isLoadingHistory: false,
   error: null,
+  historyError: null,
   stats: {
     totalRuns: 0,
     passedRuns: 0,
     failedRuns: 0,
     totalFixesApplied: 0,
     averageTime: 0,
+  },
+
+  loadRuns: async () => {
+    set({ isLoadingHistory: true, historyError: null });
+    try {
+      const persistedRuns = await listRuns();
+      const merged = mergeRuns(persistedRuns, get().runs);
+      set({
+        runs: merged,
+        isLoadingHistory: false,
+        stats: computeStats(merged),
+      });
+    } catch (err) {
+      set({
+        isLoadingHistory: false,
+        historyError:
+          err instanceof Error
+            ? err.message
+            : "Could not load run history. Backend may be unavailable.",
+      });
+    }
   },
 
   startRun: async (payload) => {
@@ -57,7 +84,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         writebackEnabled: result.writebackEnabled ?? false,
         createdAt: result.createdAt || new Date().toISOString(),
       };
-      const runs = [run, ...get().runs];
+      const runs = mergeRuns([run], get().runs);
       set({
         runs,
         activeRun: run,
@@ -75,11 +102,22 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   setActiveRun: (run) => set({ activeRun: run }),
 
+  setRuns: (runs) => set({ runs, stats: computeStats(runs) }),
+
   addRun: (run) => {
-    const runs = [run, ...get().runs];
+    const runs = mergeRuns([run], get().runs);
     set({ runs, stats: computeStats(runs) });
   },
 
   clearError: () => set({ error: null }),
   clearResult: () => set({ result: null }),
 }));
+
+function mergeRuns(primary: AgentRun[], secondary: AgentRun[]): AgentRun[] {
+  const seen = new Set<string>();
+  return [...primary, ...secondary].filter((run) => {
+    if (seen.has(run.id)) return false;
+    seen.add(run.id);
+    return true;
+  });
+}

@@ -1,12 +1,18 @@
 "use client";
 
+import { useEffect } from "react";
 import { useAgentStore } from "@/store/useAgentStore";
 import { RunCard, LoadingSpinner } from "@/components";
 import { StatusBadge } from "@/components/StatusBadge";
 import { successRate } from "@/lib/utils";
 
 export default function RunsPage() {
-  const { runs, stats, isRunning } = useAgentStore();
+  const { runs, stats, isRunning, isLoadingHistory, historyError, loadRuns } =
+    useAgentStore();
+
+  useEffect(() => {
+    loadRuns();
+  }, [loadRuns]);
 
   return (
     <div className="page-container space-y-6 animate-fade-in">
@@ -38,7 +44,19 @@ export default function RunsPage() {
         />
       </div>
 
-      {runs.length === 0 ? (
+      {isLoadingHistory ? (
+        <div className="card flex flex-col items-center justify-center py-20 text-center">
+          <LoadingSpinner />
+          <p className="mt-4 text-ink-400">Loading previous runs...</p>
+        </div>
+      ) : historyError ? (
+        <div className="card flex flex-col items-center justify-center py-20 text-center">
+          <p className="text-red-300">Could not load run history. Backend may be unavailable.</p>
+          <p className="mt-2 max-w-md text-xs text-ink-500">
+            Artifact-backed history may also disappear on free or ephemeral hosting.
+          </p>
+        </div>
+      ) : runs.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-20 text-center">
           <svg
             className="h-16 w-16 text-ink-600"
@@ -53,7 +71,7 @@ export default function RunsPage() {
               d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
             />
           </svg>
-          <p className="mt-4 text-ink-400">No runs recorded</p>
+          <p className="mt-4 text-ink-400">No runs yet. Launch a repo analysis to create your first run.</p>
           <p className="mt-1 text-xs text-ink-500">
             Go to Dashboard to trigger a recovery run
           </p>

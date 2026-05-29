@@ -196,7 +196,7 @@ export default function RunTriggerForm({ onStartStream }: RunTriggerFormProps) {
           <div>
             <p className="eyebrow">Writeback Policy</p>
             <p className="mt-2 text-sm text-ink-300">
-              AtlasOps now defaults to review-first mode. It preserves a patched workspace and zip artifact instead of pushing directly.
+              AtlasOps defaults to review-first mode. It preserves a patched workspace and zip artifact unless you explicitly request a GitHub branch and PR.
             </p>
           </div>
           <label className="flex items-center gap-3">
@@ -214,7 +214,7 @@ export default function RunTriggerForm({ onStartStream }: RunTriggerFormProps) {
         </div>
         <p className="mt-3 font-mono text-[11px] text-ink-500">
           {enableWriteback
-            ? "AtlasOps will attempt branch/push operations for remote repositories."
+            ? "AtlasOps will create and push a fix branch for remote repositories, then try to open a PR. It will not push to main directly."
             : "AtlasOps will keep the result reviewable and downloadable before any GitHub write action."}
         </p>
       </div>
